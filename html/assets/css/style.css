@@ -1,0 +1,9 @@
+:root{
+  --bs-primary:#0068ff;    /* corporate blue */
+  --bs-secondary:#8492a6;  /* muted grey */
+  scroll-behavior:smooth;  /* fallback for old browsers */
+}
+
+section {padding-top:4rem; padding-bottom:4rem;}
+.timeline {border-left:4px solid var(--bs-primary); padding-left:1rem;}
+.timeline li {margin-bottom:1.5rem;}
