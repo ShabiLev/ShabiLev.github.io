@@ -1,0 +1,8 @@
+:root{
+  --bs-primary:#0068ff;
+  --bs-secondary:#8492a6;
+  scroll-behavior:smooth;
+}
+section {padding-top:4rem; padding-bottom:4rem;}
+.timeline {border-left:4px solid var(--bs-primary); padding-left:1rem;}
+.timeline li {margin-bottom:1.5rem;}
