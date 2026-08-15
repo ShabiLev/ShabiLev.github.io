@@ -1,0 +1,114 @@
+name: Deploy verified portfolio
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+env:
+  PORTFOLIO_REPOSITORY: ShabiLev/Shabi.Levanda
+  PORTFOLIO_SHA: 3c0dd0521c5aa254f27987bc5a12234544cd3d7b
+
+jobs:
+  validate:
+    name: Build and validate production snapshot
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout deployment repository
+        uses: actions/checkout@v7
+
+      - name: Checkout verified canonical portfolio source
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.PORTFOLIO_REPOSITORY }}
+          ref: ${{ env.PORTFOLIO_SHA }}
+          path: source
+          persist-credentials: false
+
+      - name: Verify pinned source revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git -C source rev-parse HEAD)"
+          test "$actual" = "$PORTFOLIO_SHA"
+          echo "Verified canonical source: $actual"
+
+      - name: Stage production-only artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+
+          cp source/index.html _site/index.html
+          cp source/styles.css _site/styles.css
+          cp source/script.js _site/script.js
+          cp source/robots.txt _site/robots.txt
+          cp -R source/he _site/he
+          cp -R source/projects _site/projects
+          cp -R source/assets _site/assets
+
+          # The auditable HTML CV source belongs in the canonical source repo,
+          # while production exposes only the reviewed PDF artifact.
+          rm -f _site/assets/cv/Shabi-Levanda-CV-EN.html
+          touch _site/.nojekyll
+
+      - name: Validate production artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s _site/index.html
+          test -s _site/he/index.html
+          test -s _site/projects/cwl-office/index.html
+          test -s _site/he/projects/cwl-office/index.html
+          test -s _site/assets/cv/Shabi-Levanda-CV-EN.pdf
+          test -s _site/assets/shabi-levanda-portrait.jpg
+          test -s _site/assets/og-image.png
+          test -s _site/styles.css
+          test -s _site/script.js
+
+          grep -q 'lang="en" dir="ltr"' _site/index.html
+          grep -q 'lang="he" dir="rtl"' _site/he/index.html
+          grep -q 'Prompt Engineering' _site/index.html
+          grep -q 'CWL Office' _site/projects/cwl-office/index.html
+
+          if grep -R -I -E 'mongodb\+srv|ShabiLevanda-Cello|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|github_pat_|ghp_[A-Za-z0-9]+' _site; then
+            echo 'Public-safety scan found a blocked pattern.' >&2
+            exit 1
+          fi
+
+          echo 'Production snapshot validation: PASS'
+
+      - name: Configure GitHub Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@v5
+
+      - name: Upload GitHub Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy verified artifact
+        id: deployment
+        uses: actions/deploy-pages@v4
