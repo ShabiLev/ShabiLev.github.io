@@ -49,7 +49,7 @@ def fetch(url: str, *, attempts: int = 4, allow_redirects: bool = True) -> tuple
     last_error: Exception | None = None
     for attempt in range(1, attempts + 1):
         try:
-            request = Request(url, headers={"User-Agent": USER_AGENT})
+            request = Request(url, headers={"User-Agent": USER_AGENT, "Cache-Control": "no-cache"})
             with urlopen(request, timeout=25) as response:
                 status = response.status
                 body = response.read()
@@ -86,6 +86,41 @@ def assert_html_contract(url: str, html: str, lang: str, direction: str, marker:
     return parser
 
 
+def wait_for_html_contract(
+    url: str,
+    lang: str,
+    direction: str,
+    marker: str,
+    *,
+    attempts: int = 15,
+    delay_seconds: int = 4,
+) -> ResourceParser:
+    """Wait for the newly deployed GitHub Pages content, not just HTTP 200.
+
+    Pages/CDN can briefly return the previous deployment after deploy-pages reports
+    success. The release gate therefore waits until the live response satisfies the
+    expected content contract before evaluating the rest of production.
+    """
+
+    last_error: AssertionError | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            body, content_type, _ = fetch(url, attempts=1)
+            assert "text/html" in content_type.lower(), f"Unexpected content type for {url}: {content_type}"
+            html = body.decode("utf-8")
+            parser = assert_html_contract(url, html, lang, direction, marker)
+            if attempt > 1:
+                print(f"Pages propagation observed after attempt {attempt}: {url}")
+            return parser
+        except AssertionError as exc:
+            last_error = exc
+            if attempt < attempts:
+                print(f"WAIT Pages propagation ({attempt}/{attempts}): {url} — {exc}")
+                time.sleep(delay_seconds)
+
+    raise AssertionError(f"Live content contract did not converge for {url}: {last_error}")
+
+
 def main() -> int:
     internal_urls: set[str] = set()
     github_urls: set[str] = set()
@@ -93,10 +128,7 @@ def main() -> int:
     other_external: set[str] = set()
 
     for page_url, (lang, direction, marker) in PAGES.items():
-        body, content_type, _ = fetch(page_url, attempts=12)
-        assert "text/html" in content_type.lower(), f"Unexpected content type for {page_url}: {content_type}"
-        html = body.decode("utf-8")
-        parser = assert_html_contract(page_url, html, lang, direction, marker)
+        parser = wait_for_html_contract(page_url, lang, direction, marker)
         print(f"PASS page: {page_url} lang={lang} dir={direction}")
 
         for raw in set(parser.hrefs + parser.resources):
