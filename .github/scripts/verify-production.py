@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import sys
 import time
+from html import unescape
 from html.parser import HTMLParser
 from urllib.error import HTTPError, URLError
 from urllib.parse import urldefrag, urljoin, urlparse
@@ -73,9 +74,10 @@ def assert_html_contract(url: str, html: str, lang: str, direction: str, marker:
     tag = html_tag.group(0)
     assert re.search(rf'\blang=["\']{re.escape(lang)}["\']', tag, flags=re.IGNORECASE), f"Wrong lang in {url}"
     assert re.search(rf'\bdir=["\']{re.escape(direction)}["\']', tag, flags=re.IGNORECASE), f"Wrong dir in {url}"
-    assert marker in html, f"Missing expected marker in {url}: {marker}"
+    rendered_source = unescape(html)
+    assert marker in rendered_source, f"Missing expected marker in {url}: {marker}"
     for blocked in BLOCKED_TEXT:
-        assert blocked not in html, f"Blocked public text found in {url}: {blocked}"
+        assert blocked not in rendered_source, f"Blocked public text found in {url}: {blocked}"
 
     parser = ResourceParser()
     parser.feed(html)
@@ -95,12 +97,7 @@ def wait_for_html_contract(
     attempts: int = 15,
     delay_seconds: int = 4,
 ) -> ResourceParser:
-    """Wait for the newly deployed GitHub Pages content, not just HTTP 200.
-
-    Pages/CDN can briefly return the previous deployment after deploy-pages reports
-    success. The release gate therefore waits until the live response satisfies the
-    expected content contract before evaluating the rest of production.
-    """
+    """Wait until the live GitHub Pages response satisfies the current release contract."""
 
     last_error: AssertionError | None = None
     for attempt in range(1, attempts + 1):
@@ -165,7 +162,6 @@ def main() -> int:
             assert len(body) > 0, f"Empty internal resource: {url}"
     print(f"PASS internal live links/resources: {len(internal_urls)}")
 
-    # GitHub project/profile links are expected to be publicly reachable.
     for url in sorted(github_urls):
         body, _, _ = fetch(url, attempts=3)
         assert len(body) > 0, f"Empty GitHub response: {url}"
