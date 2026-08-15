@@ -90,6 +90,10 @@ jobs:
 
           echo 'Production snapshot validation: PASS'
 
+      - name: Validate production smoke verifier
+        shell: bash
+        run: python -m py_compile .github/scripts/verify-production.py
+
       - name: Configure GitHub Pages
         if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v5
@@ -112,3 +116,15 @@ jobs:
       - name: Deploy verified artifact
         id: deployment
         uses: actions/deploy-pages@v4
+
+  smoke:
+    name: Verify live production
+    if: github.event_name != 'pull_request'
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout deployment repository
+        uses: actions/checkout@v7
+
+      - name: Verify English, Hebrew RTL, CWL, CV and live links
+        run: python .github/scripts/verify-production.py
