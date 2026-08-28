@@ -18,7 +18,7 @@ concurrency:
 
 env:
   PORTFOLIO_REPOSITORY: ShabiLev/Shabi.Levanda
-  PORTFOLIO_SHA: 3c0dd0521c5aa254f27987bc5a12234544cd3d7b
+  PORTFOLIO_SHA: 7bfa6402c8268bd8ebb296584bd5675de7545b95
 
 jobs:
   validate:
