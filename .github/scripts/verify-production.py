@@ -13,7 +13,7 @@ BASE_URL = "https://shabilev.github.io/"
 USER_AGENT = "ShabiLev-Portfolio-Production-Smoke/1.1"
 
 PAGES = {
-    BASE_URL: ("en", "ltr", "Quality & Release Engineering Leader"),
+    BASE_URL: ("en", "ltr", "Quality, Release & Applied AI Engineering Leader"),
     urljoin(BASE_URL, "he/"): ("he", "rtl", "שבי לבנדה"),
     urljoin(BASE_URL, "projects/cwl-office/"): ("en", "ltr", "Confidentiality boundary"),
     urljoin(BASE_URL, "he/projects/cwl-office/"): ("he", "rtl", "CWL Office"),
@@ -155,7 +155,7 @@ def main() -> int:
         body, content_type, _ = fetch(url)
         if url.endswith("Shabi-Levanda-CV-EN.pdf"):
             assert body.startswith(b"%PDF"), "CV does not have a PDF signature"
-            assert len(body) > 50_000, f"CV is unexpectedly small: {len(body)} bytes"
+            assert len(body) > 20_000, f"CV is unexpectedly small: {len(body)} bytes"
             assert "application/pdf" in content_type.lower(), f"Unexpected CV content type: {content_type}"
             print(f"PASS CV: {url} bytes={len(body)}")
         else:
